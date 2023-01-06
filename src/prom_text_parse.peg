@@ -1,0 +1,77 @@
+exposition <- line* `
+    lists:flatten(Node)
+`;
+line <- s? (help / type / comment / metric / blank) s? nl `
+    lists:flatten(Node)
+`;
+blank <- "" `[]`;
+help <- "#" s "HELP" s name:metric_name s text:notnl `
+    Name = proplists:get_value(name, Node),
+    Text = proplists:get_value(text, Node),
+    #prom_help{name = Name, text = Text}
+`;
+type <- "#" s "TYPE" s name:metric_name s type:metric_type `
+    Name = proplists:get_value(name, Node),
+    Type = proplists:get_value(type, Node),
+    #prom_type{name = Name, type = Type}
+`;
+comment <- "#" s? text:notnl `
+    Text = proplists:get_value(text, Node),
+    #prom_comment{text = Text}
+`;
+metric <- name:metric_name s? labels:labelset? s value:float s? timestamp:int? `
+    Name = proplists:get_value(name, Node),
+    Labels = proplists:get_value(labels, Node, #{}),
+    Value = proplists:get_value(value, Node),
+    Timestamp = proplists:get_value(timestamp, Node),
+    #prom_metric_value{name = Name, labels = Labels, value = Value,
+                       timestamp = Timestamp}
+`;
+labelset <- "{" s? label? (s? "," s? label)* s? "}" `
+    [_,_,FirstLabel,RestParts,_,_] = Node,
+    RestLabels = [Lbl || [_,_,_,Lbl] <- RestParts],
+    maps:from_list(lists:flatten([FirstLabel | RestLabels]))
+`;
+label <- metric_name s? "=" s? label_val `
+    [Name,_,_,_,Val] = Node,
+    {Name, Val}
+`;
+label_val <- ["] (notdqesc / esc)* ["] `
+    [_, Inner, _] = Node,
+    iolist_to_binary(Inner)
+`;
+
+metric_name <- #[a-zA-Z][a-zA-Z0-9_]*# `
+    iolist_to_binary(Node)
+`;
+metric_type <- "counter" / "gauge" / "histogram" / "summary" / "untyped" `
+    binary_to_atom(iolist_to_binary(Node))
+`;
+float <- inf_float / num_float `
+    lists:flatten(Node)
+`;
+num_float <- "-"? #[0-9.]+# ("e" #[+-]#? #[0-9.]+#)? `
+    binary_to_float(iolist_to_binary(Node))
+`;
+inf_float <- "+Inf" / "-Inf" `
+    binary_to_atom(iolist_to_binary(Node))
+`;
+int <- "-"? #[0-9]+# `
+    binary_to_integer(iolist_to_binary(Node))
+`;
+
+s <- #[\x20\x09]+# `[]`;
+nl <- #[\x0d\x0a]+# `[]`;
+notnl <- #[^\x0d\x0a]+# `iolist_to_binary(Node)`;
+notdqesc <- #[^"\x0d\x0a\\]+#;
+esc <- [\\] ["nr] `
+    case Node of
+        [_, <<"n">>] -> $\n;
+        [_, <<"r">>] -> $\r;
+        [_, <<$">>] -> $"
+    end
+`;
+
+`
+-include_lib("promhouse/include/records.hrl").
+`

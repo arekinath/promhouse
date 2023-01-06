@@ -1,0 +1,20 @@
+{application, promhouse, [
+    {description, "Prometheus data => clickhouse storage"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {promhouse_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        neotoma,
+        gun,
+        lager,
+        ssl
+    ]},
+    {env, []},
+    {modules, []},
+    {licenses, ["BSD-2-Clause"]},
+    {links, [
+    ]}
+]}.
+
