@@ -17,3 +17,5 @@ _build
 *.iml
 rebar3.crashdump
 *~
+src/prom_text_lex.erl
+src/prom_text_parse.erl

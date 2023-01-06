@@ -1,17 +1,17 @@
 -record(prom_help, {
-    name :: binary(),
-    text :: undefined | binary()
+    name :: string(),
+    text :: undefined | string()
     }).
 -record(prom_type, {
-    name :: binary(),
+    name :: string(),
     type :: counter | gauge | histogram | summary | untyped
     }).
 -record(prom_comment, {
-    text :: binary()
+    text :: string()
     }).
--record(prom_metric_value, {
-    name :: binary(),
-    labels :: #{binary() => binary()},
+-record(prom_value, {
+    name :: string(),
+    labels = #{} :: #{binary() => binary()},
     value :: '+Inf' | '-Inf' | float(),
     timestamp :: undefined | integer()
     }).
