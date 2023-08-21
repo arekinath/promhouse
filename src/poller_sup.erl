@@ -24,15 +24,13 @@
 %% THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
 
--module(promhouse_sup).
+-module(poller_sup).
 
 -behaviour(supervisor).
 
 -export([start_link/0]).
 
 -export([init/1]).
-
--define(SERVER, ?MODULE).
 
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
@@ -47,17 +45,15 @@ start_link() ->
 %%                  type => worker(),       % optional
 %%                  modules => modules()}   % optional
 init([]) ->
-    SupFlags = #{strategy => one_for_one,
-                 intensity => 10,
-                 period => 10},
+    SupFlags = #{strategy => simple_one_for_one,
+                 intensity => 5,
+                 period => 5},
     ChildSpecs = [
-        #{id => poller_sup,
-          start => {poller_sup, start_link, []},
-          type => supervisor}
+        #{start => {poller, start_link, []},
+          type => worker}
     ],
-    {ok, _} = ra_system:start_default(),
-    _ = (catch poll_scheduler:start()),
-    {ok, _} = timer:apply_interval(5000, poll_scheduler, tick, []),
     {ok, {SupFlags, ChildSpecs}}.
 
 %% internal functions
+
+

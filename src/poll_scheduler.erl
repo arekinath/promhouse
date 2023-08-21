@@ -24,40 +24,41 @@
 %% THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
 
--module(promhouse_sup).
+-module(poll_scheduler).
 
--behaviour(supervisor).
+-behaviour(ra_machine).
 
--export([start_link/0]).
+-export([
+    start/0
+    ]).
 
--export([init/1]).
+start() ->
+    Config = application:get_env(promhouse, ra, []),
+    Nodes = proplists:get_value(nodes, Config, [node() | nodes()]),
+    Servers = [{?MODULE, N} || N <- Nodes],
+    ra:start_or_restart_cluster(default,
+        ?MODULE_STRING, {module, ?MODULE, #{}}, Servers).
 
--define(SERVER, ?MODULE).
+-type time() :: integer().
+%% Milliseconds since UNIX epoch (system_time())
+-type reltime() :: integer().
+%% Milliseconds
 
-start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+-type poller_state() :: #{
+    epoch => time(),
+    interval => reltime(),
+    runtime_window => [reltime()],
+    et_err_prior => reltime(),
+    et_err_integral => float(),
+    state => dead | asleep | polling,
+    }.
 
-%% sup_flags() = #{strategy => strategy(),         % optional
-%%                 intensity => non_neg_integer(), % optional
-%%                 period => pos_integer()}        % optional
-%% child_spec() = #{id => child_id(),       % mandatory
-%%                  start => mfargs(),      % mandatory
-%%                  restart => restart(),   % optional
-%%                  shutdown => shutdown(), % optional
-%%                  type => worker(),       % optional
-%%                  modules => modules()}   % optional
-init([]) ->
-    SupFlags = #{strategy => one_for_one,
-                 intensity => 10,
-                 period => 10},
-    ChildSpecs = [
-        #{id => poller_sup,
-          start => {poller_sup, start_link, []},
-          type => supervisor}
-    ],
-    {ok, _} = ra_system:start_default(),
-    _ = (catch poll_scheduler:start()),
-    {ok, _} = timer:apply_interval(5000, poll_scheduler, tick, []),
-    {ok, {SupFlags, ChildSpecs}}.
+% schedule optimiser
+% - simple gradient descent
+% - cost function based on projected number of concurrent pollers using epoch + interval + runtime_window
+% - go through all the epochs, adjusting a small delta in each direction
+% - get a gradient estimate for each
+% - each time the optimiser runs, take a fixed amount of adjustment (fraction of longest interval?)
+% - scale it by the current max concurrency as fraction of total poller count
+% - spread it amongst the epochs based on steepness of gradient
 
-%% internal functions
